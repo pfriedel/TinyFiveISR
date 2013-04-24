@@ -1,0 +1,16 @@
+
+*.dblite
+
+*.cpp
+
+*.d
+
+build/TinyFiveISR.ino
+
+*.o
+
+*.a
+
+*.h
+
+*.c
