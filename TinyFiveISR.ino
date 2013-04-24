@@ -76,17 +76,11 @@ Future modes:
 
 // The build uses 1 for the PTH versions and 3 for the SMD displays.
 
-#define DEPTH 2
+#define DEPTH 3
 
 byte __attribute__ ((section (".noinit"))) last_mode;
 
 uint8_t led_grid[15] = {
-  000 , 000 , 000 , 000 , 000 , // R
-  000 , 000 , 000 , 000 , 000 , // G
-  000 , 000 , 000 , 000 , 000  // B
-};
-
-uint8_t led_grid_next[15] = {
   000 , 000 , 000 , 000 , 000 , // R
   000 , 000 , 000 , 000 , 000 , // G
   000 , 000 , 000 , 000 , 000  // B
@@ -138,33 +132,37 @@ const uint8_t led_out[15] = {
 uint16_t b;
 uint8_t led;
 uint8_t max_brite = 255>>DEPTH;
+volatile uint16_t timer_overflow_count = 0;
 
-ISR(TIMER0_COMPA_vect) {
-  // giving the loop a bit of breathing room seems to prevent the last LED from flickering.  Probably optimizes into oblivion anyway.
-  for ( led=0; led<15; led++ ) { 
-    // software PWM 
-    // input range is 0 (off) to 255>>DEPTH (127/63/31/etc) (fully on)
+ISR(TIMER0_OVF_vect) {
+  //  if(++timer_overflow_count > 1) {
+    // giving the loop a bit of breathing room seems to prevent the last LED from flickering.  Probably optimizes into oblivion anyway.
+    for ( led=0; led<15; led++ ) { 
+      // software PWM 
+      // input range is 0 (off) to 255>>DEPTH (127/63/31/etc) (fully on)
+      
+      // Light the LED in proportion to the value in the led_grid array
+      for( b=0; b < led_grid[led]; b++ ) {
+	DDRB = led_dir[led];
+	PORTB = led_out[led];
+      }
+      
+      // and turn the LEDs off for the amount of time in the led_grid array
+      // between LED brightness and 255>>DEPTH.
+      for( b=led_grid[led]; b < max_brite; b++ ) {
+	DDRB = 0;
+	PORTB = 0;
+      }
+    }
     
-    // Light the LED in proportion to the value in the led_grid array
-    for( b=0; b < led_grid[led]; b++ ) {
-      DDRB = led_dir[led];
-      PORTB = led_out[led];
-    }
-
-    // and turn the LEDs off for the amount of time in the led_grid array
-    // between LED brightness and 255>>DEPTH.
-    for( b=led_grid[led]; b < max_brite; b++ ) {
-      DDRB = 0;
-      PORTB = 0;
-    }
-  }
-
-  // Force the LEDs off - otherwise if the last LED on (led 14) was at full
-  // brightness at the end of the softPWM, it would never actually get turned
-  // off and would flicker. (mostly visible in the SB_Walk modes, if you want to
-  // test it)
-  DDRB = 0;
-  PORTB = 0;
+    // Force the LEDs off - otherwise if the last LED on (led 14) was at full
+    // brightness at the end of the softPWM, it would never actually get turned
+    // off and would flicker. (mostly visible in the SB_Walk modes, if you want to
+    // test it)
+    DDRB = 0;
+    PORTB = 0;
+//    timer_overflow_count = 0;
+//  }
 }
 
 void EEReadSettings (void) {  // TODO: Detect ANY bad values, not just 255.
@@ -237,7 +235,6 @@ void setup() {
   }
   randomSeed(seed);
 
-  OCR0A = 128;
   /*
 CS bits:
 02 01 00
@@ -249,8 +246,13 @@ CS bits:
 1  0  1 = /1024
   */
 
-  TCCR0B = _BV(CS01) | _BV(CS00); // /64 = dim but good speed 
-  TIMSK |= _BV(OCIE0A);
+  TCCR0B |= (1<<CS00);             // no prescaling
+//  TCCR0B |= (1<<CS01);             // /8
+//  TCCR0B |= (1<<CS01) | (1<<CS00); // /64
+//  TCCR0B |= (1<<CS02);             // /256
+//  TCCR0B |= (1<<CS02) | (1<<CS00); // /1024
+
+  TIMSK |= 1<<TOIE0;
   sei();
 }
 
