@@ -14,3 +14,13 @@ build/TinyFiveISR.ino
 *.h
 
 *.c
+
+*.elf
+
+*.hex
+
+TinyFiveISR.elf
+
+TinyFiveISR.hex
+
+TinyFiveISR.hex
