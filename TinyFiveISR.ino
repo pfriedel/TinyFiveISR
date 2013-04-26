@@ -31,27 +31,10 @@ Future modes:
    old color is fading out.
 
 */
-
-// Because I tend to forget - the number here is the Port B pin in use.  Pin 5 is PB0, Pin 6 is PB1, etc.
-#define LINE_A 0 // PB0 / Pin 5 on ATtiny85 / Pin 14 on an ATmega328 (D8)
-#define LINE_B 1 // PB1 / Pin 6 on ATtiny85 / Pin 15 on an ATmega328 (D9) 
-#define LINE_C 2 // PB2 / Pin 7 on ATtiny85 / Pin 17 on an ATmega328 (D11)
-#define LINE_D 3 // PB3 / Pin 2 on ATtiny85 / Pin 18 on an ATmega328 (D12)
-#define LINE_E 4 // PB4 / Pin 3 on ATtiny85
-
 #include <avr/sleep.h>
 #include <avr/power.h>
 #include <EEPROM.h>
 
-// How many modes do we want to go through?
-#define MAX_MODE 14
-// How long should I draw each color on each LED?
-#define DRAW_TIME 25
-
-// Location of the brown-out disable switch in the MCU Control Register (MCUCR)
-#define BODS 7 
-// Location of the Brown-out disable switch enable bit in the MCU Control Register (MCUCR)
-#define BODSE 2 
 
 // The base unit for the time comparison. 1000=1s, 10000=10s, 60000=1m, etc.
 //#define time_multiplier 1000 
@@ -134,97 +117,22 @@ uint8_t led;
 uint8_t max_brite = 255>>DEPTH;
 volatile uint16_t timer_overflow_count = 0;
 
+// invert the logic - update the LEDs during the interrupt, constantly draw them otherwise.
 ISR(TIMER0_OVF_vect) {
-  //  if(++timer_overflow_count > 1) {
-    // giving the loop a bit of breathing room seems to prevent the last LED from flickering.  Probably optimizes into oblivion anyway.
-    for ( led=0; led<15; led++ ) { 
-      // software PWM 
-      // input range is 0 (off) to 255>>DEPTH (127/63/31/etc) (fully on)
-      
-      // Light the LED in proportion to the value in the led_grid array
-      for( b=0; b < led_grid[led]; b++ ) {
-	DDRB = led_dir[led];
-	PORTB = led_out[led];
-      }
-      
-      // and turn the LEDs off for the amount of time in the led_grid array
-      // between LED brightness and 255>>DEPTH.
-      for( b=led_grid[led]; b < max_brite; b++ ) {
-	DDRB = 0;
-	PORTB = 0;
-      }
-    }
-    
-    // Force the LEDs off - otherwise if the last LED on (led 14) was at full
-    // brightness at the end of the softPWM, it would never actually get turned
-    // off and would flicker. (mostly visible in the SB_Walk modes, if you want to
-    // test it)
-    DDRB = 0;
-    PORTB = 0;
-//    timer_overflow_count = 0;
-//  }
+  // turn off the LEDs while you ponder their new numbers.
+  DDRB=0;
+  PORTB=0;
+
+  for(uint8_t led = 0; led<5; led++) {
+    uint16_t hue = ((led) * MAX_HUE/20+timer_overflow_count)%MAX_HUE;
+    setLedColorHSV(led, hue, 255, 255);
+  }
+  timer_overflow_count++;
+  if(timer_overflow_count>360) { timer_overflow_count = 0; }
 }
 
-void EEReadSettings (void) {  // TODO: Detect ANY bad values, not just 255.
-  byte detectBad = 0;
-  byte value = 255;
-  
-  value = EEPROM.read(0);
-  if (value > MAX_MODE)
-    detectBad = 1;
-  else
-    last_mode = value;  // MainBright has maximum possible value of 8.
-  
-  if (detectBad)
-    last_mode = 0; // I prefer the rainbow effect.
-}
-
-void EESaveSettings (void){
-  byte value = EEPROM.read(0);
-
-  if(value != last_mode)
-    EEPROM.write(0, last_mode);
-}
-
-void SleepNow(void) {
-  // decrement last_mode, so the EXTRF increment sets it back to where it was.
-  // note: this actually doesn't work that great in cases where power is removed after the MCU goes to sleep.
-  // On the other hand, that's an edge condition that I'm not going to worry about too much.
-  last_mode--;
-
-  // mode is type byte, so when it rolls below 0, it will become a Very
-  // Large Number compared to MAX_MODE.  Set it to MAX_MODE and the setup
-  // routine will jump it up and down by one.
-  if(last_mode > MAX_MODE) { last_mode = MAX_MODE; }
-
-  EESaveSettings();
-
-  // Important power management stuff follows
-  ADCSRA &= ~(1<<ADEN); // turn off the ADC
-  ACSR |= _BV(ACD);     // disable the analog comparator
-  MCUCR |= _BV(BODS) | _BV(BODSE); // turn off the brown-out detector
-
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN); // do a complete power down
-  sleep_enable(); // enable sleep mode
-  sei();  // allow interrupts to end sleep mode
-  sleep_cpu(); // go to sleep
-  delay(500);
-  sleep_disable(); // disable sleep mode for safety
-}
 
 void setup() {
-  if(bit_is_set(MCUSR, PORF)) { // Power was just established!
-    MCUSR = 0; // clear MCUSR
-    EEReadSettings(); // read the last mode out of eeprom
-  } 
-  else if(bit_is_set(MCUSR, EXTRF)) { // we're coming out of a reset condition.
-    MCUSR = 0; // clear MCUSR
-    last_mode++; // advance mode
-
-    if(last_mode > MAX_MODE) {
-      last_mode = 0; // reset mode
-    }
-  }
 
   // Try and set the random seed more randomly.  Alternate solutions involve
   // using the eeprom and writing the last seed there.
@@ -246,46 +154,41 @@ CS bits:
 1  0  1 = /1024
   */
 
-  TCCR0B |= (1<<CS00);             // no prescaling
+//  TCCR0B |= (1<<CS00);             // no prescaling
 //  TCCR0B |= (1<<CS01);             // /8
 //  TCCR0B |= (1<<CS01) | (1<<CS00); // /64
 //  TCCR0B |= (1<<CS02);             // /256
-//  TCCR0B |= (1<<CS02) | (1<<CS00); // /1024
+  TCCR0B |= (1<<CS02) | (1<<CS00); // /1024
 
   TIMSK |= 1<<TOIE0;
   sei();
 }
 
 void loop() {
-  // indicate which mode we're entering
-  led_grid[last_mode] = 255>>DEPTH;
-  delay(1000);
-  led_grid[last_mode] = 0;
-  delay(250);
-
-  // If EXTRF hasn't been asserted yet, save the mode
-  EESaveSettings();
-
-  // go into the modes
-  HueWalk(run_time,millis(),20,1); // wide virtual space, slow progression
-  SleepNow();
-}
-
-void HueWalk(uint16_t time, uint32_t start_time, uint8_t width, uint8_t speed) {
-  while(1) {
+  for ( led=0; led<15; led++ ) { 
+    // software PWM 
+    // input range is 0 (off) to 255>>DEPTH (127/63/31/etc) (fully on)
     
-    if(millis() >= (start_time + (time * time_multiplier))) { break; }
-
-    for(int16_t colorshift=MAX_HUE; colorshift>0; colorshift = colorshift - speed) {
-
-      if(millis() >= (start_time + (time * time_multiplier))) { break; }
-      for(uint8_t led = 0; led<5; led++) {
-	uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
-	setLedColorHSV(led, hue, 255, 255);
-      }
-      delay(10);
+    // Light the LED in proportion to the value in the led_grid array
+    for( b=0; b < led_grid[led]; b++ ) {
+      DDRB = led_dir[led];
+      PORTB = led_out[led];
+    }
+    
+    // and turn the LEDs off for the amount of time in the led_grid array
+    // between LED brightness and 255>>DEPTH.
+    for( b=led_grid[led]; b < max_brite; b++ ) {
+      DDRB = 0;
+      PORTB = 0;
     }
   }
+  
+  // Force the LEDs off - otherwise if the last LED on (led 14) was at full
+  // brightness at the end of the softPWM, it would never actually get turned
+  // off and would flicker. (mostly visible in the SB_Walk modes, if you want to
+  // test it)
+  DDRB = 0;
+  PORTB = 0;
 }
 
 /*
