@@ -113,22 +113,36 @@ const uint8_t led_out[15] = {
 };
 
 uint16_t b;
-uint8_t led;
+uint8_t led, drawcount;
 uint8_t max_brite = 255>>DEPTH;
-volatile uint16_t timer_overflow_count = 0;
+volatile uint8_t cur_led = 0;
 
 // invert the logic - update the LEDs during the interrupt, constantly draw them otherwise.
-ISR(TIMER0_OVF_vect) {
-  // turn off the LEDs while you ponder their new numbers.
-  DDRB=0;
-  PORTB=0;
+ISR(TIMER0_OVF_vect) { 
 
-  for(uint8_t led = 0; led<5; led++) {
-    uint16_t hue = ((led) * MAX_HUE/20+timer_overflow_count)%MAX_HUE;
-    setLedColorHSV(led, hue, 255, 255);
+  // How many times should the routine loop through the array before returning?
+  // It's a scaling factor - one pass makes the display dimmer, 8 passes makes
+  // the ISR time out.  Arguably this could also be handled by setting the
+  // overflow count to 255>>5 so the ISR gets called 7 times more often than
+  // 62500 times/second. (16,000,000 mhz / 256)
+
+  for(drawcount=0; drawcount<7; drawcount++)  {  
+    for(led = 0; led<15; led++) {
+      for( b=0; b < led_grid[led]; b++ ) {
+	DDRB = led_dir[led];
+	PORTB = led_out[led];
+      }
+      
+      // and turn the LEDs off for the amount of time in the led_grid array
+      // between LED brightness and 255>>DEPTH.
+      for( b=led_grid[led]; b < max_brite; b++ ) {
+	DDRB = 0;
+	PORTB = 0;
+      }
+    }
+    DDRB=0;
+    PORTB=0;
   }
-  timer_overflow_count++;
-  if(timer_overflow_count>360) { timer_overflow_count = 0; }
 }
 
 
@@ -154,41 +168,24 @@ CS bits:
 1  0  1 = /1024
   */
 
-//  TCCR0B |= (1<<CS00);             // no prescaling
-//  TCCR0B |= (1<<CS01);             // /8
-//  TCCR0B |= (1<<CS01) | (1<<CS00); // /64
-//  TCCR0B |= (1<<CS02);             // /256
-  TCCR0B |= (1<<CS02) | (1<<CS00); // /1024
+  TCCR0B |= (1<<CS00);             // no prescaling
+  //  TCCR0B |= (1<<CS01);             // /8
+  //  TCCR0B |= (1<<CS01) | (1<<CS00); // /64
+  //  TCCR0B |= (1<<CS02);             // /256
+  //  TCCR0B |= (1<<CS02) | (1<<CS00); // /1024
 
   TIMSK |= 1<<TOIE0;
   sei();
 }
 
 void loop() {
-  for ( led=0; led<15; led++ ) { 
-    // software PWM 
-    // input range is 0 (off) to 255>>DEPTH (127/63/31/etc) (fully on)
-    
-    // Light the LED in proportion to the value in the led_grid array
-    for( b=0; b < led_grid[led]; b++ ) {
-      DDRB = led_dir[led];
-      PORTB = led_out[led];
+  for(uint16_t shift = MAX_HUE; shift>0; shift = shift - 1) {
+    for(uint8_t led = 0; led<5; led++) {
+      uint16_t hue = ((led) * MAX_HUE/20+shift)%MAX_HUE;
+      setLedColorHSV(led, hue, 255, 255);
     }
-    
-    // and turn the LEDs off for the amount of time in the led_grid array
-    // between LED brightness and 255>>DEPTH.
-    for( b=led_grid[led]; b < max_brite; b++ ) {
-      DDRB = 0;
-      PORTB = 0;
-    }
+    delay(20);
   }
-  
-  // Force the LEDs off - otherwise if the last LED on (led 14) was at full
-  // brightness at the end of the softPWM, it would never actually get turned
-  // off and would flicker. (mostly visible in the SB_Walk modes, if you want to
-  // test it)
-  DDRB = 0;
-  PORTB = 0;
 }
 
 /*
