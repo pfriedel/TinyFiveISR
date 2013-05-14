@@ -249,7 +249,7 @@ void AllRand(void) {
       SBWalk(allrand_time,millis(),4,1); // fast progression through hues modifying brightness
       break;
     case 6:
-      RandHueWalk(allrand_time,millis());
+      ColorSweeps(allrand_time, millis());
       break;
     case 7:
       BiColorWalk(allrand_time, millis(), 0, 120); // red to green, works great
@@ -304,8 +304,9 @@ void loop() {
   case 4:
     HueWalk(run_time,millis(),5,2); // 1:1 space to LED, fast progression
     break;
+    // green modes
   case 5:
-    RandomColorRandomPosition(run_time,millis());
+    ColorSweeps(run_time, millis());
     break;
   case 6:
     RandHueWalk(run_time,millis()); // It's a lot like the prior mode, but with color shifting
@@ -319,6 +320,7 @@ void loop() {
   case 9:
     PrimaryColors(run_time,millis()); // just a bulb check, to be honest.
     break;
+    // blue modes
   case 10:
     BiColorWalk(run_time, millis(), 0, 120); // red to green, works great
     break;
@@ -340,6 +342,35 @@ void loop() {
     break;
   }
   SleepNow();
+}
+
+void ColorSweeps(uint16_t time, uint32_t start_time) {
+  int16_t oldcolor = random(360);
+  int16_t newcolor, curcolor;
+
+  end_time = (start_time + (time * time_multiplier));
+  
+  for(int x = 0; x<5; x++) {
+    setLedColorHSV(x, oldcolor, 255, 255);
+  }
+
+  while(1) {
+    if(millis() >= end_time) { break; }
+    newcolor = oldcolor + random(40,60);
+    while(newcolor > 359) { newcolor -= 360; }
+
+    for(int x = 0; x<5; x++) {
+      curcolor = oldcolor;
+      while(curcolor != newcolor) {
+        setLedColorHSV(x, curcolor, 255, 255);
+        curcolor++;
+        if(curcolor > 360) { curcolor = 0; }
+        delay(1);
+      }
+      delay(200);
+    }
+    oldcolor = newcolor;
+  }
 }
 
 /*
@@ -381,7 +412,7 @@ void SBWalk(uint16_t time, uint32_t start_time, uint8_t jump, uint8_t mode) {
       else
 	led_val[led] -= delta;
     }
-    delay(10);
+    delay(7);
   }
 }
 
