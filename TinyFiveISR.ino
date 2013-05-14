@@ -285,6 +285,8 @@ void loop() {
 
   delay(100);
   
+  EESaveSettings();
+
   switch(last_mode) {
     // red modes
   case 0:
