@@ -36,6 +36,11 @@
 
 #define DEPTH 3
 
+// 7 is good for a depth of 3
+// 4 is good for a depth of 2
+// 2 is good for a depth of 1
+#define DRAWCOUNT 7
+
 byte __attribute__ ((section (".noinit"))) last_mode;
 
 uint8_t led_grid[15] = {
@@ -102,7 +107,7 @@ ISR(TIMER0_OVF_vect) {
   // overflow count to 255>>5 so the ISR gets called 7 times more often than
   // 62500 times/second. (16,000,000 mhz / 256)
 
-  for(drawcount=0; drawcount<7; drawcount++)  {  
+  for(drawcount=0; drawcount<DRAWCOUNT; drawcount++)  {  
     for(led = 0; led<15; led++) {
       for( b=0; b < led_grid[led]; b++ ) {
 	DDRB = led_dir[led];
@@ -412,7 +417,7 @@ void SBWalk(uint16_t time, uint32_t start_time, uint8_t jump, uint8_t mode) {
       else
 	led_val[led] -= delta;
     }
-    delay(7);
+    delay(3); // slower and the bit depth starts to get noticable
   }
 }
 
@@ -489,7 +494,7 @@ void BiColorWalk(uint16_t time, uint32_t start_time, uint16_t starthue, uint16_t
     for(uint8_t led = 0; led < 5; led++) {
       setLedColorHSV(led, curhue, 255, 255);
     }
-    delay(10);
+    delay(40);
   }
 }
 
