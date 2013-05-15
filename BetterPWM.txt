@@ -1,0 +1,83 @@
+So the current PWM model works like this - if the LED brightness is 22 of 31:
+
+######################.........
+
+And if the brightness is 12:
+
+############...................
+
+
+All of the on time and all of the off time are continuous chunks of time.  I'd
+like to try figuring out how to convert that to something more like:
+
+##.##.##.##.##.####.##.##.##.##
+
+And:
+
+#..#..#..#.#..#.#..#.#..#.#..#.
+
+I suspect I need to read up on this now that my drawing is a little more
+predictable:
+
+http://www.batsocks.co.uk/readme/art_bcm_1.htm
+
+(alternately, I should try to do both and see if there's any visible
+difference...)
+
+A quick solution that suggests itself is something like:
+
+     16 8 4 2 1
+31 =  1 1 1 1 1 ############################### 31
+30 =  1 1 1 1 0 ##############################. 30
+29 =  1 1 1 0 1 ############################..# 29
+28 =  1 1 1 0 0 ############################... 28
+27 =  1 1 0 1 1 ########################....### 27
+26 =  1 1 0 1 0 ########################....##. 26
+25 =  1 1 0 0 1 ########################......# 25
+24 =  1 1 0 0 0 ########################....... 24
+23 =  1 0 1 1 1 ################........####### 23
+22 =  1 0 1 1 0 ################........######. 22
+21 =  1 0 1 0 1 ################........####..# 21
+20 =  1 0 1 0 0 ################........####... 20
+19 =  1 0 0 1 1 ################............### 19
+18 =  1 0 0 1 0 ################............##. 18
+17 =  1 0 0 0 1 ################..............# 17
+16 =  1 0 0 0 0 ################............... 16
+15 =  0 1 1 1 1 ................############### 15
+14 =  0 1 1 1 0 ................##############. 14
+13 =  0 1 1 0 1 ................############..# 13
+12 =  0 1 1 0 0 ................############... 12
+11 =  0 1 0 1 1 ................########....### 11
+10 =  0 1 0 1 0 ................########....##. 10
+ 9 =  0 1 0 0 1 ................########......#  9
+ 8 =  0 1 0 0 0 ................########.......  8
+ 7 =  0 0 1 1 1 ........................#######  7
+ 6 =  0 0 1 1 0 ........................######.  6
+ 5 =  0 0 1 0 1 ........................####..#  5
+ 4 =  0 0 1 0 0 ........................####...  4
+ 3 =  0 0 0 1 1 ............................###  3
+ 2 =  0 0 0 1 0 ............................##.  2
+ 1 =  0 0 0 0 1 ..............................#  1
+ 0 =  0 0 0 0 0 ...............................  0
+     16 8 4 2 1
+
+22 would be on for 16 cycles, off for 8, on for 4, on for another 2 and off for 1.
+
+################........######.
+
+Using the & operator it might be possible, but that loop is pretty tight
+already.  And the on/off duty cycle doesn't change all that much.  And there's
+additional time spent toggling the pin state.  I might be better off figuring
+out the non-exclusive LED pairs (i.e. all the ones that share a common cathode
+or anode) and drive them all at the same time.  I suspect that might bring the
+loop down from 15 comparisons to 5.
+
+I'm pretty sure I can drive red green and blue on any given LED at the same time
+simply by driving the anode high and the cathodes all low.  For example LED 1
+would be PB1 high and PB0, 2 and 3 low.  I might run into current issues though
+and inconsistent brightness.  But that might be a solution for the bug where
+blue isn't as bright as purple or yellow because purple and yellow have two dies
+lit.
+
+Anyway, some other things to poke around with to see if I can get back to DEPTH
+1.
