@@ -7,7 +7,6 @@
 
 
 // The base unit for the time comparison. 1000=1s, 10000=10s, 60000=1m, etc.
-//#define time_multiplier 1000 
 #define time_multiplier 60000
 // How many time_multiplier intervals should run before going to sleep?
 #define run_time 240
@@ -16,29 +15,41 @@
 
 // Location of the brown-out disable switch in the MCU Control Register (MCUCR)
 #define BODS 7
-// Location of the Brown-out disable switch enable bit in the MCU Control Register (MCUCR)
+
+// Location of the Brown-out disable switch enable bit in the MCU Control
+// Register (MCUCR)
 #define BODSE 2
 
-// How bit-crushed do you want the bit depth to be?  1 << DEPTH is how
-// quickly it goes through the LED softpwm scale.
+/* 
+ How bit-crushed do you want the bit depth to be?  1 << DEPTH is how
+ quickly it goes through the LED softpwm scale.
 
-// 1 means 128 shades per color.  3 is 32 colors while 6 is 4 shades per color.
-// it sort of scales the time drawing routine, but not well.
+ 1 means 128 shades per color.  3 is 32 colors while 6 is 4 shades per color.
 
-// It mostly affects how much POV flicker there is - 
-// 1 is moderately flickery, but the color depth is the best.
-// 3 is about the best balance of color depth and flicker
+ It mostly effects how much POV flicker there is - 
+ 1 is moderately flickery, but the color depth is the best.
+ 3 is about the best balance of color depth and flicker
 
-// The flicker is visible in all modes, the depth crushing starts to be evident
-// in the SBWalk modes.  Mode 7 is the touchstone for not having enough bits.
+ The flicker is visible in all modes, the depth crushing starts to be evident
+ in the SBWalk modes.
 
-// The build uses 1 for the PTH versions and 3 for the SMD displays.
-
+ The build uses 1 for the PTH versions and 3 for the SMD displays.
+*/
 #define DEPTH 3
 
-// 7 is good for a depth of 3
-// 4 is good for a depth of 2
-// 2 is good for a depth of 1
+/*
+ How many times should the ISR draw the array?  If you spend too long drawing
+ the array, the ISR accumulates another trigger before completing and the normal
+ calculations never occur, leading to a frozen display.
+
+ 7 is good for a depth of 3
+ 4 is good for a depth of 2
+ 2 is good for a depth of 1
+
+ Also has a side benefit of allowing a certain amount of brightness control -
+ DEPTH = 3 and DRAWCOUNT = 1 is far dimmer (if choppier) than DRAWCOUNT = 7.
+*/
+
 #define DRAWCOUNT 7
 
 byte __attribute__ ((section (".noinit"))) last_mode;
@@ -267,7 +278,7 @@ void AllRand(void) {
       break;
     case 10:
       {
-        uint16_t starthue = random(360);
+        uint16_t starthue = random(MAX_HUE);
         uint16_t endhue = starthue + 120;
         BiColorWalk(allrand_time, millis(), starthue, endhue);
         break;
@@ -311,10 +322,10 @@ void loop() {
     break;
     // green modes
   case 5:
-    ColorSweeps(run_time, millis());
+    ColorSweeps(run_time, millis()); // Picks a color and draws it out to all 5 LEDs before proceeding to the next color.
     break;
   case 6:
-    RandHueWalk(run_time,millis()); // It's a lot like the prior mode, but with color shifting
+    RandHueWalk(run_time,millis()); // Sweep through random colors on random positions.
     break;
   case 7:
     SBWalk(run_time,millis(),1,1); // Slow progression through hues modifying brightness
@@ -337,7 +348,7 @@ void loop() {
   break;
   case 13:
     {
-      uint16_t starthue = random(360);
+      uint16_t starthue = random(MAX_HUE);
       uint16_t endhue = starthue + 120;
       BiColorWalk(run_time, millis(), starthue, endhue);
       break;
@@ -350,26 +361,26 @@ void loop() {
 }
 
 void ColorSweeps(uint16_t time, uint32_t start_time) {
-  int16_t oldcolor = random(360);
+  int16_t oldcolor = random(MAX_HUE);
   int16_t newcolor, curcolor;
 
   end_time = (start_time + (time * time_multiplier));
   
   for(int x = 0; x<5; x++) {
-    setLedColorHSV(x, oldcolor, 255, 255);
+    setLedColorHSV(x, oldcolor, 255, 128);
   }
 
   while(1) {
     if(millis() >= end_time) { break; }
     newcolor = oldcolor + random(40,60);
-    while(newcolor > 359) { newcolor -= 360; }
+    while(newcolor > 359) { newcolor -= MAX_HUE; }
 
     for(int x = 0; x<5; x++) {
       curcolor = oldcolor;
       while(curcolor != newcolor) {
         setLedColorHSV(x, curcolor, 255, 255);
         curcolor++;
-        if(curcolor > 360) { curcolor = 0; }
+        if(curcolor > MAX_HUE) { curcolor = 0; }
         delay(1);
       }
       delay(200);
@@ -460,7 +471,7 @@ void PrimaryColors(uint16_t time, uint32_t start_time) {
 void RandHueWalk(uint16_t time, uint32_t start_time) {
   end_time = (start_time + (time * time_multiplier));
 
-  uint16_t ledhue[] = {random(360), random(360), random(360), random(360), random(360)};
+  uint16_t ledhue[] = {random(MAX_HUE), random(MAX_HUE), random(MAX_HUE), random(MAX_HUE), random(MAX_HUE)};
   while(1) {
 
     if(millis() >= end_time) { break; }
@@ -470,7 +481,7 @@ void RandHueWalk(uint16_t time, uint32_t start_time) {
       if(hue == 0) { ledhue[led] = 359; }
       setLedColorHSV(led, hue, 255, 255);
     }
-    delay(10); // this gets called 5 times, once per LED.
+    delay(10);
   }
 }
 
@@ -494,7 +505,7 @@ void BiColorWalk(uint16_t time, uint32_t start_time, uint16_t starthue, uint16_t
     for(uint8_t led = 0; led < 5; led++) {
       setLedColorHSV(led, curhue, 255, 255);
     }
-    delay(40);
+    delay(35);
   }
 }
 
@@ -509,7 +520,7 @@ void HueWalk(uint16_t time, uint32_t start_time, uint8_t width, uint8_t speed) {
         uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
         setLedColorHSV(led, hue, 255, 255);
       }
-      delay(10);
+      delay(25);
     }
   }
 }
