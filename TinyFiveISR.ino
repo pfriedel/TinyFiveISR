@@ -109,6 +109,15 @@ uint8_t max_brite = 255>>DEPTH;
 uint32_t end_time = 0;
 volatile uint8_t cur_led = 0;
 
+/* Technically this works:
+  PORTB = led_out[0];
+  DDRB |= led_dir[0];
+  DDRB |= led_dir[5];
+  DDRB |= led_dir[10];
+
+Application is left for later.
+*/
+
 // invert the logic - update the LEDs during the interrupt, constantly draw them otherwise.
 ISR(TIMER0_OVF_vect) { 
 

@@ -79,5 +79,14 @@ and inconsistent brightness.  But that might be a solution for the bug where
 blue isn't as bright as purple or yellow because purple and yellow have two dies
 lit.
 
+So yeah:
+
+  PORTB = led_out[0];
+  DDRB |= led_dir[0];
+  DDRB |= led_dir[5];
+  DDRB |= led_dir[10];
+
+Lights led1 up in white.  Yay.
+
 Anyway, some other things to poke around with to see if I can get back to DEPTH
 1.
