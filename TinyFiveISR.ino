@@ -48,6 +48,8 @@
 
  Also has a side benefit of allowing a certain amount of brightness control -
  DEPTH = 3 and DRAWCOUNT = 1 is far dimmer (if choppier) than DRAWCOUNT = 7.
+ 
+ 2 for PTH, 7 for SMD.
 */
 
 #define DRAWCOUNT 7
@@ -111,7 +113,6 @@ uint16_t b;
 uint8_t led, drawcount;
 uint8_t max_brite = 255>>DEPTH;
 uint32_t end_time = 0;
-volatile uint8_t cur_led = 0;
 
 /* Technically this works:
   PORTB = led_out[0];
@@ -493,7 +494,7 @@ void PrimaryColors(uint16_t time, uint32_t start_time) {
     
     // push the change out to the array.
     led_grid[led] = led_bright;
-    delay(10);
+    delay(250/int(255>>DEPTH));
   }
 }
 
@@ -550,7 +551,7 @@ void HueWalk(uint16_t time, uint32_t start_time, uint8_t width, uint8_t speed) {
         uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
         setLedColorHSV(led, hue, 255, 255);
       }
-      delay(25);
+      delay(20);
     }
   }
 }
