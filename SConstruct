@@ -96,7 +96,7 @@ if platform == 'darwin':
     ARDUINO_HOME        = resolve_var('ARDUINO_HOME',
                                       '/Applications/Arduino.app/Contents/Resources/Java')
     ARDUINO_PORT        = resolve_var('ARDUINO_PORT', getUsbTty('/dev/tty.usbserial*'))
-    SKETCHBOOK_HOME     = resolve_var('SKETCHBOOK_HOME', '/Users/pfriedel/Documents/Arduino/')
+    SKETCHBOOK_HOME     = resolve_var('SKETCHBOOK_HOME', '')
     AVR_HOME            = resolve_var('AVR_HOME',
                                       path.join(ARDUINO_HOME, 'hardware/tools/avr/bin'))
 elif platform == 'win32':
@@ -118,10 +118,10 @@ else:
     AVR_HOME_DUDE       = resolve_var('AVR_HOME',
                                       path.join(ARDUINO_HOME, 'hardware/tools/'))
 
-ARDUINO_BOARD   = resolve_var('ARDUINO_BOARD', 'attiny85at16p')
+ARDUINO_BOARD   = resolve_var('ARDUINO_BOARD', 'atmega328')
 ARDUINO_VER     = resolve_var('ARDUINO_VER', 0) # Default to 0 if nothing is specified
 RST_TRIGGER     = resolve_var('RST_TRIGGER', None) # use built-in pulseDTR() by default
-EXTRA_LIB       = resolve_var('EXTRA_LIB', '/Users/pfriedel/Documents/Arduino/hardware/tiny/cores/tiny') # handy for adding another arduino-lib dir
+EXTRA_LIB       = resolve_var('EXTRA_LIB', None) # handy for adding another arduino-lib dir
 
 if not ARDUINO_HOME:
     print 'ARDUINO_HOME must be defined.'
@@ -172,7 +172,7 @@ if ARDUINO_VER == 0:
     #print "No Arduino version specified. Discovered version",
     if path.exists(arduinoHeader):
         #print "100 or above"
-        ARDUINO_VER = 101
+        ARDUINO_VER = 100
     else:
         #print "0023 or below"
         ARDUINO_VER = 23
@@ -209,10 +209,8 @@ assert(path.exists(TARGET + '.ino') or path.exists(TARGET + '.pde'))
 sketchExt = '.ino' if path.exists(TARGET + '.ino') else '.pde'
 
 cFlags = ['-ffunction-sections', '-fdata-sections', '-fno-exceptions',
-          '-MMD', '-DUSB_VID=null', '-DUSB_PID=null',
-          '-I/Users/pfriedel/Documents/Arduino/hardware/tiny/cores/tiny',
-          '-I/Applications/Arduino.app/Contents/Resources/Java/libraries/EEPROM',
-          '-g', '-O3', '-Wall', '-mmcu=%s' % MCU]
+          '-funsigned-char', '-funsigned-bitfields', '-fpack-struct',
+          '-fshort-enums', '-Os', '-Wall', '-mmcu=%s' % MCU]
 
 # Add some missing paths to CFLAGS
 # Workaround for /usr/libexec/gcc/avr/ld: cannot open linker script file ldscripts/avr5.x: No such file or directory
@@ -221,7 +219,11 @@ extra_cflags = [
     '-L/usr/x86_64-pc-linux-gnu/avr/lib/',
     '-B/usr/avr/lib/avr5/',
     ]
-# cFlags += extra_cflags
+cFlags += extra_cflags
+
+if ARDUINO_BOARD == "leonardo":
+    cFlags += ["-DUSB_VID="+getBoardConf('build.vid')]
+    cFlags += ["-DUSB_PID="+getBoardConf('build.pid')]
 
 envArduino = Environment(CC = AVR_BIN_PREFIX + 'gcc',
                          CXX = AVR_BIN_PREFIX + 'g++',
@@ -322,7 +324,7 @@ def fnPrintInfo(target, source, env):
 bldProcessing = Builder(action = fnProcessing) #, suffix = '.cpp', src_suffix = sketchExt)
 bldCompressCore = Builder(action = fnCompressCore)
 bldELF = Builder(action = AVR_BIN_PREFIX + 'gcc -mmcu=%s ' % MCU +
-                          '-O3 -Wl,--gc-sections -lm %s -o $TARGET $SOURCES -lc' % ' '.join(extra_cflags))
+                          '-Os -Wl,--gc-sections -lm %s -o $TARGET $SOURCES -lc' % ' '.join(extra_cflags))
 bldHEX = Builder(action = AVR_BIN_PREFIX + 'objcopy -O ihex -R .eeprom $SOURCES $TARGET')
 bldInfo = Builder(action = fnPrintInfo)
 

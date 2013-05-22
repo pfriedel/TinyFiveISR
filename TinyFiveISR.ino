@@ -14,11 +14,11 @@
 #define MAX_HUE 360
 
 // Location of the brown-out disable switch in the MCU Control Register (MCUCR)
-#define BODS 7
+#define BODS 6
 
 // Location of the Brown-out disable switch enable bit in the MCU Control
 // Register (MCUCR)
-#define BODSE 2
+#define BODSE 5
 
 /* 
  How bit-crushed do you want the bit depth to be?  1 << DEPTH is how
@@ -52,7 +52,7 @@
  2 for PTH, 7 for SMD.
 */
 
-#define DRAWCOUNT 7
+#define DRAWCOUNT 1
 
 byte __attribute__ ((section (".noinit"))) last_mode;
 
@@ -124,8 +124,8 @@ Application is left for later.
 */
 
 // invert the logic - update the LEDs during the interrupt, constantly draw them otherwise.
-ISR(TIMER0_OVF_vect) { 
-
+ISR(TIMER1_OVF_vect) { 
+  digitalWrite(2, HIGH);
   // How many times should the routine loop through the array before returning?
   // It's a scaling factor - one pass makes the display dimmer, 8 passes makes
   // the ISR time out.  Arguably this could also be handled by setting the
@@ -142,13 +142,14 @@ ISR(TIMER0_OVF_vect) {
       // and turn the LEDs off for the amount of time in the led_grid array
       // between LED brightness and 255>>DEPTH.
       for( b=led_grid[led]; b < max_brite; b++ ) {
-	DDRB = 0;
-	PORTB = 0;
+	DDRB = B0;
+	PORTB = B0;
       }
     }
-    DDRB=0;
+    //    DDRB=0;
     PORTB=0;
   }
+  digitalWrite(2, LOW);
 }
 
 /* An alternative drawing routine is this - but there didn't seem to be any
@@ -259,9 +260,11 @@ CS bits:
 1  0  1 = /1024
   */
 
-  TCCR0B |= (1<<CS00);             // no prescaling
-  TIMSK |= 1<<TOIE0;
+  TCCR1B |= (1<<CS00);             // no prescaling
+  TIMSK1 |= 1<<TOIE1;
   sei();
+  pinMode(2, OUTPUT);
+  digitalWrite(2, HIGH);
 }
 
 
