@@ -4,9 +4,9 @@ scons
 avrdude -c usbasp \
   -C /Applications/Arduino.app/Contents/Resources/Java/hardware/tools/avr/etc/avrdude.conf \
   -p t85 \
-  -U lfuse:w:0xc1:m \ 
-  -U hfuse:w:0xd7:m \ 
-  -U efuse:w:0xff:m \ 
+  -U lfuse:w:0xc1:m \
+  -U hfuse:w:0xd7:m \
+  -U efuse:w:0xff:m \
   -U flash:w:TinyFiveISR.hex:i
 
 # bit low        high
