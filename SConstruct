@@ -212,7 +212,7 @@ cFlags = ['-ffunction-sections', '-fdata-sections', '-fno-exceptions',
           '-MMD', '-DUSB_VID=null', '-DUSB_PID=null',
           '-I/Users/pfriedel/Documents/Arduino/hardware/tiny/cores/tiny',
           '-I/Applications/Arduino.app/Contents/Resources/Java/libraries/EEPROM',
-          '-g', '-O3', '-Wall', '-mmcu=%s' % MCU]
+          '-g', '-O2', '-Wall', '-mmcu=%s' % MCU]
 
 # Add some missing paths to CFLAGS
 # Workaround for /usr/libexec/gcc/avr/ld: cannot open linker script file ldscripts/avr5.x: No such file or directory
@@ -322,7 +322,7 @@ def fnPrintInfo(target, source, env):
 bldProcessing = Builder(action = fnProcessing) #, suffix = '.cpp', src_suffix = sketchExt)
 bldCompressCore = Builder(action = fnCompressCore)
 bldELF = Builder(action = AVR_BIN_PREFIX + 'gcc -mmcu=%s ' % MCU +
-                          '-O3 -Wl,--gc-sections -lm %s -o $TARGET $SOURCES -lc' % ' '.join(extra_cflags))
+                          '-O2 -Wl,--gc-sections -lm %s -o $TARGET $SOURCES -lc' % ' '.join(extra_cflags))
 bldHEX = Builder(action = AVR_BIN_PREFIX + 'objcopy -O ihex -R .eeprom $SOURCES $TARGET')
 bldInfo = Builder(action = fnPrintInfo)
 
