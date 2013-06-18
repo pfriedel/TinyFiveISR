@@ -224,6 +224,14 @@ void SleepNow(void) {
 /* ------------------------------------------------------------------------ */
 
 void setup() {
+  // stock is ~7khz updates
+  // note: fiddling with OSCCAL does horrible things to delay and millis calls.
+
+  //  OSCCAL = 0x00; // 4.5kHz updates
+  //  OSCCAL = 0xBF; // ~8kHz
+  //  OSCCAL = 0xCF; // 9.2kHz
+  //  OSCCAL = 0xDF; // 10.3 kHz running
+  //  OSCCAL = 0xFF; // 13kHz updates - unstable on battery power.
 
   if(bit_is_set(MCUSR, PORF)) { // Power was just established!
     MCUSR = 0; // clear MCUSR
